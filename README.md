@@ -17,3 +17,11 @@
 Команда /get log - Получить информацию из файла логов
 
 Сборка файла логов включена автоматически. Создание исполнительного файла так же происходит автоматически
+
+Для успешной работы проекта необходимы следующие библиотеки:
+
+import socket, re, os, time, logging
+import pandas as pd
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+import threading as thread
