@@ -3,6 +3,7 @@ import pandas as pd
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 import threading as thread
+from threading import Thread 
 
 class MyHandler(FileSystemEventHandler):
     def on_created(self, event):
@@ -19,12 +20,7 @@ class MyHandler(FileSystemEventHandler):
         sock.send ('\nFile has been deleted'.encode())
     def on_modified(self, event):
         print("on_modified", event.src_path)
-        try:
-            logging.info ('Handler message: File has been modified')
-            sock.send ('\nFile has been modified'.encode())
-        except Exception as e:
-            logging.exception (e)
-            pass
+        logging.info ('Handler message: File has been modified')
     def on_moved(self, event):
         print("on_moved", event.src_path)
         logging.info ('File has been moved')
@@ -89,7 +85,7 @@ class fan_cycle ():
                 speed = res
                 fan.set_speed(speed)
                 angle, speed = fan.get_fan_info()
-                message = str ('\nSpeed has succesfuly changed\n' + 'Current speed: '+ str(speed) + ' rpm\n' + 'Current angle: ' + str(angle)+ ' deg')
+                message = str ('\nCurrent speed: '+ str(speed) + ' rpm\n' + 'Current angle: ' + str(angle)+ ' deg')
                 sock.send (message.encode())
                 logging.info (message)
             else:
@@ -108,7 +104,7 @@ class fan_cycle ():
                 angle = res
                 fan.set_angle(angle)
                 angle, speed = fan.get_fan_info()
-                message = str ('\nAngle has succesfuly changed\n' + 'Current speed: ' + str(speed) + ' rpm\n' + 'Current angle: ' + str(angle)+ ' deg')
+                message = str ('\nCurrent speed: ' + str(speed) + ' rpm\n' + 'Current angle: ' + str(angle)+ ' deg')
                 sock.send (message.encode())
                 logging.info (message)
             else:
@@ -160,6 +156,53 @@ class fan_cycle ():
             message = "\nIncorrect password" 
             sock.send (message.encode())
             logging.info ('Incorrect Admin password')
+class ip_port_checker ():
+    def ip_checker(ip):
+        try:
+            ip = str(ip)
+            if len(ip) == 0:
+                ip = 'localhost'
+            ip_check = ip.split ('.')
+            for i in ip_check:
+                int(i)
+        except:
+            ip = 'localhost'
+        return ip
+    def port_checker(port):       
+        try:
+            port = int(port)
+            if len(port) == 0:
+                port = 4000
+        except:
+            port = 4000
+        return port
+def check_file():
+    speed_list = []
+    angle_list = []
+    while True:
+        try:
+            data = pd.read_xml ('fan.xml')
+            speed = data.loc[0,'Speed']
+            speed_list.append (speed)
+            angle = data.loc[0,'Angle']
+            angle_list.append(angle)
+            try:
+                if angle_list[-1] != angle_list[-2]:
+                    message =  str('\nAngle has been changed. Previous parameter: ' + str(angle_list[-2]) + 'deg.' + ' Now: ' + str (angle_list[-1]) + 'deg')
+                    sock.send (message.encode())
+    #                 break
+                if speed_list[-1] != speed_list[-2]:
+                    message  = str('\nSpeed has been changed. Previous parameter: ' + str(speed_list[-2]) + 'rpm.' + ' Now: ' + str(speed_list[-1])+ 'rpm.')
+                    sock.send (message.encode())
+    #                 break
+            except:
+                pass
+            if len(speed_list) >5:
+                del speed_list [:4]
+            if len(angle_list) >5:
+                del angle_list[:4]
+        except:
+            pass            
 
 ## Create a log file ##
 logging.basicConfig(format = u'%(levelname)-8s [%(asctime)s] %(message)s', level = logging.DEBUG, filename = u'log.log')
@@ -169,10 +212,18 @@ fan = fan_config()
 fan.check_fan()
 
 ## Create a socket ##
+print('Enter IP')
+ip = input()
+print ('Enter port')
+port = input()
+ip = ip_port_checker.ip_checker(ip)
+port = ip_port_checker.port_checker(port)
+print (ip, port)
+
 
 try:
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind(("0.0.0.0", 4000))
+    s.bind((ip, port))
     print ("Working ...")
     s.listen(5)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -187,6 +238,10 @@ observer.start()
 
 clients = set()
 clients_lock = thread.Lock()
+
+## Start file checker##
+check_file_th = Thread (target = check_file, args = ())
+check_file_th.start ()
 
 ## Start a cycle ##
 while True:
@@ -281,7 +336,3 @@ while True:
             time.sleep(0.1)
         except Exception as e:
             logging.exception (e)
-
-
-        
-
