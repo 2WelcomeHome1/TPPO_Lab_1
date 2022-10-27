@@ -15,12 +15,12 @@ class ip_port_checker ():
             ip = 'localhost'
         return ip
     def port_checker(port):       
+        if len(port) == 0:
+            port = 4008     
         try:
             port = int(port)
-            if len(port) == 0:
-                port = 4000
         except:
-            port = 4000
+            port = 4008
         return port
 
 print('Enter IP')
